@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tic Tac Toe</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      text-align: center;
+      background: linear-gradient(to bottom right, #8e44ad, #3498db);
+      color: #fff;
+      margin: 0;
+      padding: 0;
+    }
+
+    h1 {
+      margin: 20px 0;
+      font-size: 2.5rem;
+      letter-spacing: 2px;
+      text-shadow: 2px 2px #000;
+    }
+
+    #scoreboard {
+      display: flex;
+      justify-content: center;
+      margin: 20px 0;
+    }
+
+    .score-box {
+      width: 60px;
+      height: 60px;
+      margin: 0 10px;
+      border-radius: 10px;
+      font-size: 1.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.1);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+      transition: background-color 0.3s, transform 0.3s;
+      cursor: pointer;
+    }
+
+    .score-box.active {
+      background: #2ecc71;
+      transform: scale(1.1);
+    }
+
+    #mode-select {
+      margin: 20px 0;
+      font-size: 1.2rem;
+    }
+
+    select {
+      padding: 5px 10px;
+      font-size: 1rem;
+      border-radius: 5px;
+      border: none;
+      background: #fff;
+      color: #333;
+      cursor: pointer;
+    }
+
+    #game-board {
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      gap: 10px;
+      margin: 20px auto;
+      max-width: 320px;
+    }
+
+    .cell {
+      width: 100px;
+      height: 100px;
+      background: #fff;
+      border-radius: 10px;
+      font-size: 2rem;
+      color: #2c3e50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+      cursor: pointer;
+      transition: transform 0.2s, background-color 0.2s;
+    }
+
+    .cell:hover {
+      background-color: #ecf0f1;
+      transform: scale(1.05);
+    }
+
+    .cell.taken {
+      pointer-events: none;
+      color: #95a5a6;
+    }
+
+    #result {
+      font-size: 1.5rem;
+      margin-top: 20px;
+      text-shadow: 1px 1px #000;
+    }
+
+    button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 5px;
+      background: #e74c3c;
+      color: #fff;
+      cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+      transition: background-color 0.3s, transform 0.3s;
+    }
+
+    button:hover {
+      background: #c0392b;
+      transform: scale(1.05);
+    }
+
+    @media (max-width: 600px) {
+      h1 {
+        font-size: 2rem;
+      }
+
+      #game-board {
+        grid-template-columns: repeat(3, 80px);
+        gap: 8px;
+      }
+
+      .cell {
+        width: 80px;
+        height: 80px;
+        font-size: 1.8rem;
+      }
+
+      .score-box {
+        width: 50px;
+        height: 50px;
+        font-size: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Tic Tac Toe</h1>
+  <div id="scoreboard">
+    <div id="score-x" class="score-box" onclick="selectStartingPlayer('X')">X - 0</div>
+    <div id="score-o" class="score-box" onclick="selectStartingPlayer('O')">O - 0</div>
+  </div>
+  <div id="mode-select">
+    Mode: 
+    <select id="game-mode" onchange="resetGame()">
+      <option value="pvp">Player vs Player</option>
+      <option value="easy">Player vs Computer (Easy)</option>
+      <option value="hard">Player vs Computer (Hard)</option>
+      <option value="impossible">Player vs Computer (Impossible)</option>
+    </select>
+  </div>
+  <div id="game-board"></div>
+  <div id="result"></div>
+  <button onclick="resetGame()">Reset Game</button>
+
+  <script>
+    const board = document.getElementById("game-board");
+    const result = document.getElementById("result");
+    const modeSelect = document.getElementById("game-mode");
+    const scoreX = document.getElementById("score-x");
+    const scoreO = document.getElementById("score-o");
+
+    let currentPlayer = "X";
+    let gameActive = true;
+    let gameState = ["", "", "", "", "", "", "", "", ""];
+    let scores = { X: 0, O: 0 };
+    let firstTurnPlayed = false;
+    let isComputerTurn = false;
+
+    const winningConditions = [
+      [0, 1, 2],
+      [3, 4, 5],
+      [6, 7, 8],
+      [0, 3, 6],
+      [1, 4, 7],
+      [2, 5, 8],
+      [0, 4, 8],
+      [2, 4, 6],
+    ];
+
+    function selectStartingPlayer(player) {
+      if (!firstTurnPlayed) {
+        currentPlayer = player;
+        highlightCurrentPlayer();
+        if (player === "O" && modeSelect.value !== "pvp") {
+          isComputerTurn = true;
+          setTimeout(computerMove, 500); // Let computer move first if "O" starts
+        }
+      }
+    }
+
+    function highlightCurrentPlayer() {
+      scoreX.classList.toggle("active", currentPlayer === "X");
+      scoreO.classList.toggle("active", currentPlayer === "O");
+    }
+
+    function checkWin() {
+      for (const condition of winningConditions) {
+        const [a, b, c] = condition;
+        if (gameState[a] && gameState[a] === gameState[b] && gameState[a] === gameState[c]) {
+          gameActive = false;
+          result.textContent = `Player ${currentPlayer} Wins!`;
+          scores[currentPlayer]++;
+          updateScores();
+          return;
+        }
+      }
+
+      if (!gameState.includes("")) {
+        gameActive = false;
+        result.textContent = "It's a Draw!";
+      }
+    }
+
+    function updateScores() {
+      scoreX.textContent = `X - ${scores.X}`;
+      scoreO.textContent = `O - ${scores.O}`;
+    }
+
+    function handleCellClick(event) {
+      if (isComputerTurn || !gameActive) return;
+
+      const cell = event.target;
+      const cellIndex = Array.from(board.children).indexOf(cell);
+
+      if (gameState[cellIndex]) return;
+
+      gameState[cellIndex] = currentPlayer;
+      cell.textContent = currentPlayer;
+      cell.classList.add("taken");
+
+      firstTurnPlayed = true;
+      highlightCurrentPlayer();
+      checkWin();
+
+      if (gameActive) {
+        currentPlayer = currentPlayer === "X" ? "O" : "X";
+        if (modeSelect.value !== "pvp" && currentPlayer === "O") {
+          isComputerTurn = true;
+          result.textContent = "Computer's Turn...";
+          setTimeout(computerMove, 500);
+        } else {
+          result.textContent = `Player ${currentPlayer}'s Turn`;
+        }
+        highlightCurrentPlayer();
+      }
+    }
+
+    function computerMove() {
+      let move;
+      if (modeSelect.value === "easy") {
+        move = easyMove();
+      } else if (modeSelect.value === "hard") {
+        move = hardMove();
+      } else if (modeSelect.value === "impossible") {
+        move = minimax(gameState, "O").index;
+      }
+
+      gameState[move] = "O";
+      board.children[move].textContent = "O";
+      board.children[move].classList.add("taken");
+
+      firstTurnPlayed = true;
+      checkWin();
+
+      if (gameActive) {
+        currentPlayer = "X";
+        result.textContent = `Player X's Turn`;
+        isComputerTurn = false;
+        highlightCurrentPlayer();
+      }
+    }
+
+    function easyMove() {
+      const availableMoves = gameState.reduce((acc, curr, index) => {
+        if (!curr) acc.push(index);
+        return acc;
+      }, []);
+      return availableMoves[Math.floor(Math.random() * availableMoves.length)];
+    }
+
+    function hardMove() {
+      const availableMoves = gameState.reduce((acc, curr, index) => {
+        if (!curr) acc.push(index);
+        return acc;
+      }, []);
+      let bestScore = -Infinity;
+      let move;
+      availableMoves.forEach((index) => {
+        gameState[index] = "O";
+        let score = minimax(gameState, "X").score;
+        gameState[index] = "";
+        if (score > bestScore) {
+          bestScore = score;
+          move = index;
+        }
+      });
+      return move;
+    }
+
+    function minimax(board, player) {
+      const availableMoves = board.reduce((acc, curr, index) => {
+        if (!curr) acc.push(index);
+        return acc;
+      }, []);
+
+      if (checkVictory(board, "O")) return { score: 10 };
+      if (checkVictory(board, "X")) return { score: -10 };
+      if (availableMoves.length === 0) return { score: 0 };
+
+      const moves = [];
+      availableMoves.forEach((index) => {
+        const move = {};
+        move.index = index;
+        board[index] = player;
+        if (player === "O") {
+          const result = minimax(board, "X");
+          move.score = result.score;
+        } else {
+          const result = minimax(board, "O");
+          move.score = result.score;
+        }
+        board[index] = "";
+        moves.push(move);
+      });
+
+      let bestMove;
+      if (player === "O") {
+        let bestScore = -Infinity;
+        moves.forEach((move) => {
+          if (move.score > bestScore) {
+            bestScore = move.score;
+            bestMove = move;
+          }
+        });
+      } else {
+        let bestScore = Infinity;
+        moves.forEach((move) => {
+          if (move.score < bestScore) {
+            bestScore = move.score;
+            bestMove = move;
+          }
+        });
+      }
+      return bestMove;
+    }
+
+    function checkVictory(board, player) {
+      for (const condition of winningConditions) {
+        const [a, b, c] = condition;
+        if (board[a] === player && board[b] === player && board[c] === player) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function resetGame() {
+      gameActive = true;
+      gameState = ["", "", "", "", "", "", "", "", ""];
+      firstTurnPlayed = false;
+      board.innerHTML = "";
+      result.textContent = "Player X's Turn";
+      currentPlayer = "X"; // Always reset to X
+      highlightCurrentPlayer();
+      isComputerTurn = false;
+
+      for (let i = 0; i < 9; i++) {
+        const cell = document.createElement("div");
+        cell.classList.add("cell");
+        cell.addEventListener("click", handleCellClick);
+        board.appendChild(cell);
+      }
+    }
+
+    resetGame();
+  </script>
+</body>
+</html>
